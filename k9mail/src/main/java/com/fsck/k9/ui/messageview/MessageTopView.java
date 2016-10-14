@@ -25,11 +25,11 @@ import com.fsck.k9.mail.Address;
 import com.fsck.k9.mail.Message;
 import com.fsck.k9.mailstore.MessageViewInfo;
 import com.fsck.k9.ui.messageview.MessageContainerView.OnRenderingFinishedListener;
+import com.fsck.k9.ui.messageview.ical.ICalendarViewCallback;
 import com.fsck.k9.view.MessageHeader;
 import com.fsck.k9.view.ThemeUtils;
 import com.fsck.k9.view.ToolableViewAnimator;
 import org.openintents.openpgp.OpenPgpError;
-
 
 public class MessageTopView extends LinearLayout {
 
@@ -46,9 +46,11 @@ public class MessageTopView extends LinearLayout {
     private LayoutInflater mInflater;
     private ViewGroup containerView;
     private Button mDownloadRemainder;
+    private ICalendarViewCallback iCalendarCallback;
     private AttachmentViewCallback attachmentCallback;
     private Button showPicturesButton;
     private boolean isShowingProgress;
+    private String subject = null;
 
     private MessageCryptoPresenter messageCryptoPresenter;
 
@@ -110,21 +112,24 @@ public class MessageTopView extends LinearLayout {
         boolean automaticallyLoadPictures =
                 shouldAutomaticallyLoadPictures(showPicturesSetting, messageViewInfo.message);
 
-        MessageContainerView view = (MessageContainerView) mInflater.inflate(R.layout.message_container,
+        MessageContainerView messageContainerView = (MessageContainerView) mInflater.inflate(R.layout.message_container,
                 containerView, false);
-        containerView.addView(view);
+        containerView.addView(messageContainerView);
 
         boolean hideUnsignedTextDivider = !K9.getOpenPgpSupportSignOnly();
-        view.displayMessageViewContainer(messageViewInfo, new OnRenderingFinishedListener() {
+        messageContainerView.displayMessageViewContainer(messageViewInfo, new OnRenderingFinishedListener() {
             @Override
             public void onLoadFinished() {
                 displayViewOnLoadFinished(true);
             }
-        }, automaticallyLoadPictures, hideUnsignedTextDivider, attachmentCallback);
+        }, automaticallyLoadPictures, hideUnsignedTextDivider, iCalendarCallback, attachmentCallback);
 
-        if (view.hasHiddenExternalImages()) {
+        if (messageContainerView.hasHiddenExternalImages()) {
             showShowPicturesButton();
         }
+
+        messageContainerView.setSubject(subject);
+
     }
 
     public void showMessageEncryptedButIncomplete(MessageViewInfo messageViewInfo, Drawable providerIcon) {
@@ -205,6 +210,13 @@ public class MessageTopView extends LinearLayout {
     public void setHeaders(final Message message, Account account) {
         mHeaderContainer.populate(message, account);
         mHeaderContainer.setVisibility(View.VISIBLE);
+
+        subject = message.getSubject();
+
+        View messageContainerViewCandidate = containerView.getChildAt(0);
+        if (messageContainerViewCandidate instanceof MessageContainerView) {
+            ((MessageContainerView) messageContainerViewCandidate).setSubject(subject);
+        }
     }
 
     public void setOnToggleFlagClickListener(OnClickListener listener) {
@@ -225,6 +237,10 @@ public class MessageTopView extends LinearLayout {
 
     public void setOnDownloadButtonClickListener(OnClickListener listener) {
         mDownloadRemainder.setOnClickListener(listener);
+    }
+
+    public void setICalendarCallback(ICalendarViewCallback callback) {
+        iCalendarCallback = callback;
     }
 
     public void setAttachmentCallback(AttachmentViewCallback callback) {
